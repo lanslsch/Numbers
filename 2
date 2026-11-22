@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Панель оператора</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="operator">
+  <div class="operator-container">
+    <header>
+      <h1>🖥️ Панель оператора</h1>
+      <div class="status-badge" id="statusBadge">Свободен</div>
+    </header>
+
+    <div class="operator-main">
+      <div class="call-panel">
+        <h2>Вызов следующего</h2>
+        <select id="serviceSelect">
+          <option value="consultation">Консультация</option>
+          <option value="payment">Оплата</option>
+          <option value="documents">Документы</option>
+        </select>
+        <button class="call-btn" id="callBtn">📢 Вызвать следующего</button>
+      </div>
+
+      <div class="current-panel">
+        <h2>Текущий клиент</h2>
+        <div class="big-number" id="opCurrent">—</div>
+        <button class="complete-btn" id="completeBtn" disabled>✅ Завершить обслуживание</button>
+      </div>
+    </div>
+
+    <div class="stats-panel">
+      <h2>Статистика</h2>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <span class="stat-value" id="waitingCount">0</span>
+          <span class="stat-label">В очереди</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value" id="servedCount">0</span>
+          <span class="stat-label">Обслужено</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="queue-list">
+      <h2>Очередь</h2>
+      <ul id="queueList"></ul>
+    </div>
+  </div>
+
+  <script src="queue.js"></script>
+  <script>
+    const queue = new QueueManager();
+    let currentTicket = null;
+
+    function render() {
+      // Текущий номер
+      const current = queue.getCurrent();
+      document.getElementById('opCurrent').textContent = current || '—';
+      document.getElementById('completeBtn').disabled = !current;
+
+      // Статистика
+      document.getElementById('waitingCount').textContent = queue.getWaitingCount();
+      document.getElementById('servedCount').textContent = queue.getServedCount();
+
+      // Список очереди
+      const list = document.getElementById('queueList');
+      list.innerHTML = '';
+      queue.getWaiting().forEach(t => {
+        const li = document.createElement('li');
+        li.innerHTML = `<span class="num">${t.number}</span>
+                        <span class="svc">${t.serviceName}</span>`;
+        list.appendChild(li);
+      });
+    }
+
+    document.getElementById('callBtn').addEventListener('click', () => {
+      const service = document.getElementById('serviceSelect').value;
+      const ticket = queue.callNext(service);
+      if (ticket) {
+        currentTicket = ticket;
+        document.getElementById('statusBadge').textContent = 'Обслуживание';
+        document.getElementById('statusBadge').classList.add('busy');
+        render();
+      } else {
+        alert('Очередь по этому направлению пуста');
+      }
+    });
+
+    document.getElementById('completeBtn').addEventListener('click', () => {
+      queue.completeCurrent();
+      currentTicket = null;
+      document.getElementById('statusBadge').textContent = 'Свободен';
+      document.getElementById('statusBadge').classList.remove('busy');
+      render();
+    });
+
+    window.addEventListener('storage', render);
+    setInterval(render, 1000);
+    render();
+  </script>
+</body>
+</html>
