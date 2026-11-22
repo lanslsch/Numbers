@@ -1,0 +1,99 @@
+class QueueManager {
+  constructor() {
+    this.STORAGE_KEY = 'queue_app_data';
+    this.SERVICE_NAMES = {
+      consultation: 'Консультация',
+      payment: 'Оплата',
+      documents: 'Документы'
+    };
+    this.SERVICE_PREFIX = {
+      consultation: 'К',
+      payment: 'О',
+      documents: 'Д'
+    };
+    this.init();
+  }
+
+  init() {
+    if (!localStorage.getItem(this.STORAGE_KEY)) {
+      this.save({
+        tickets: [],
+        current: null,
+        counters: { consultation: 0, payment: 0, documents: 0 },
+        served: 0
+      });
+    }
+  }
+
+  load() {
+    return JSON.parse(localStorage.getItem(this.STORAGE_KEY));
+  }
+
+  save(data) {
+    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(data));
+  }
+
+  takeTicket(service) {
+    const data = this.load();
+    data.counters[service] = (data.counters[service] || 0) + 1;
+    const num = String(data.counters[service]).padStart(3, '0');
+    const ticket = {
+      id: Date.now(),
+      number: `${this.SERVICE_PREFIX[service]}-${num}`,
+      service: service,
+      serviceName: this.SERVICE_NAMES[service],
+      time: new Date().toISOString(),
+      status: 'waiting'
+    };
+    data.tickets.push(ticket);
+    this.save(data);
+    return ticket;
+  }
+
+  callNext(service) {
+    const data = this.load();
+    const next = data.tickets.find(t =>
+      t.service === service && t.status === 'waiting'
+    );
+    if (!next) return null;
+    // Завершаем текущий, если был
+    if (data.current) {
+      const cur = data.tickets.find(t => t.id === data.current);
+      if (cur) cur.status = 'served';
+    }
+    next.status = 'serving';
+    data.current = next.id;
+    this.save(data);
+    return next;
+  }
+
+  completeCurrent() {
+    const data = this.load();
+    if (data.current) {
+      const cur = data.tickets.find(t => t.id === data.current);
+      if (cur) cur.status = 'served';
+      data.current = null;
+      data.served = (data.served || 0) + 1;
+      this.save(data);
+    }
+  }
+
+  getCurrent() {
+    const data = this.load();
+    if (!data.current) return null;
+    const t = data.tickets.find(t => t.id === data.current);
+    return t ? t.number : null;
+  }
+
+  getWaiting() {
+    return this.load().tickets.filter(t => t.status === 'waiting');
+  }
+
+  getWaitingCount() {
+    return this.getWaiting().length;
+  }
+
+  getServedCount() {
+    return this.load().served || 0;
+  }
+} 
