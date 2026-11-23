@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Электронная очередь</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+    min-height: 100vh;
+    color: #1e293b;
+    padding-bottom: 20px;
+  }
+  .tabs {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    padding: 15px;
+    background: rgba(0,0,0,0.2);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+  .tab-btn {
+    background: rgba(255,255,255,0.2);
+    color: #fff;
+    border: 2px solid transparent;
+    padding: 12px 25px;
+    border-radius: 30px;
+    font-size: 1em;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .tab-btn.active { background: #fff; color: #1e3a8a; }
+  .tab-btn:hover { border-color: #fff; }
+
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ===== ТЕРМИНАЛ ===== */
+  .terminal-container { max-width: 900px; margin: 0 auto; padding: 30px 20px; text-align: center; color: #fff; }
+  .terminal-container header h1 { font-size: 2em; margin-bottom: 8px; }
+  .subtitle { font-size: 1.1em; opacity: 0.85; margin-bottom: 30px; }
+  .services { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 30px; }
+  .service-btn {
+    background: rgba(255,255,255,0.95); border: none; border-radius: 20px;
+    padding: 30px 15px; cursor: pointer; transition: all 0.2s;
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+  }
+  .service-btn:hover { transform: translateY(-5px); box-shadow: 0 12px 30px rgba(0,0,0,0.25); }
+  .service-btn .icon { font-size: 2.5em; }
+  .service-btn .title { font-size: 1.1em; font-weight: 600; color: #1e3a8a; }
+  .current-ticket { background: rgba(0,0,0,0.25); border-radius: 16px; padding: 25px; backdrop-filter: blur(10px); }
+  .current-ticket p { font-size: 1.1em; opacity: 0.9; }
+  .current-number { font-size: 4em; font-weight: 800; letter-spacing: 4px; margin-top: 10px; }
+
+  /* Модальное окно */
+  .ticket-modal {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+    display: none; align-items: center; justify-content: center; z-index: 100; padding: 20px;
+  }
+  .ticket-modal.active { display: flex; }
+  .ticket-card {
+    background: #fff; border-radius: 24px; padding: 40px 50px; text-align: center;
+    animation: pop 0.3s ease; box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+    max-width: 400px; width: 100%;
+  }
+  @keyframes pop { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .ticket-label { color: #64748b; font-size: 1.1em; }
+  .ticket-number { font-size: 4em; font-weight: 900; color: #1e3a8a; letter-spacing: 6px; margin: 15px 0; }
+  .ticket-service { font-size: 1.3em; color: #3b82f6; font-weight: 600; }
+  .ticket-time { color: #94a3b8; margin: 15px 0 25px; }
+  .close-btn {
+    background: #3b82f6; color: #fff; border: none;
+    padding: 15px 50px; border-radius: 12px;
+    font-size: 1.1em; font-weight: 600; cursor: pointer; transition: background 0.2s;
+  }
+  .close-btn:hover { background: #1e3a8a; }
+
+  /* ===== ОПЕРАТОР ===== */
+  .operator-container { max-width: 1000px; margin: 0 auto; padding: 20px; }
+  .operator-container header { display: flex; justify-content: space-between; align-items: center; color: #fff; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+  .operator-container header h1 { font-size: 1.6em; }
+  .status-badge { background: #10b981; color: #fff; padding: 8px 20px; border-radius: 30px; font-weight: 600; font-size: 0.9em; }
+  .status-badge.busy { background: #f59e0b; }
+  .operator-main { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px; }
+  .panel { background: #fff; border-radius: 16px; padding: 20px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); margin-bottom: 15px; }
+  .panel h2 { font-size: 1.1em; color: #1e3a8a; margin-bottom: 15px; }
+  #serviceSelect { width: 100%; padding: 12px; border: 2px solid #e2e8f0; border-radius: 10px; font-size: 1em; margin-bottom: 12px; }
+  .call-btn { width: 100%; background: #3b82f6; color: #fff; border: none; padding: 14px; border-radius: 10px; font-size: 1em; font-weight: 600; cursor: pointer; }
+  .call-btn:hover { background: #1e3a8a; }
+  .big-number { font-size: 3.5em; font-weight: 900; color: #1e3a8a; text-align: center; margin: 15px 0; letter-spacing: 4px; }
+  .complete-btn { width: 100%; background: #10b981; color: #fff; border: none; padding: 14px; border-radius: 10px; font-size: 1em; font-weight: 600; cursor: pointer; }
+  .complete-btn:disabled { background: #cbd5e1; cursor: not-allowed; }
+  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .stat-card { background: #f1f5f9; border-radius: 12px; padding: 15px; text-align: center; }
+  .stat-value { display: block; font-size: 2em; font-weight: 800; color: #1e3a8a; }
+  .stat-label { color: #64748b; font-size: 0.9em; }
+  .queue-list ul { list-style: none; }
+  .queue-list li { display: flex; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid #e2e8f0; }
+  .queue-list li .num { font-weight: 700; color: #1e3a8a; }
+  .queue-list li .svc { color: #64748b; font-size: 0.9em; }
+  .empty-msg { color: #94a3b8; text-align: center; padding: 15px; }
+
+  @media (max-width: 768px) {
+    .services { grid-template-columns: 1fr; }
+    .operator-main { grid-template-columns: 1fr; }
+    .terminal-container header h1 { font-size: 1.6em; }
+    .ticket-card { padding: 30px 20px; }
+    .ticket-number { font-size: 3em; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Переключатель вкладок -->
+<div class="tabs">
+  <button class="tab-btn active" data-tab="terminal">🎫 Терминал</button>
+  <button class="tab-btn" data-tab="operator">🖥️ Оператор</button>
+</div>
+
+<!-- ===== СТРАНИЦА ТЕРМИНАЛА ===== -->
+<div class="page active" id="page-terminal">
+  <div class="terminal-container">
+    <header>
+      <h1>📋 Электронная очередь</h1>
+      <p class="subtitle">Нажмите кнопку, чтобы получить номерок</p>
+    </header>
+
+    <div class="services">
+      <button class="service-btn" data-service="consultation">
+        <span class="icon">💬</span><span class="title">Консультация</span>
+      </button>
+      <button class="service-btn" data-service="payment">
+        <span class="icon">💳</span><span class="title">Оплата</span>
+      </button>
+      <button class="service-btn" data-service="documents">
+        <span class="icon">📄</span><span class="title">Документы</span>
+      </button>
+    </div>
+
+    <div class="current-ticket">
+      <p>Сейчас обслуживается:</p>
+      <div class="current-number" id="currentDisplay">—</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== СТРАНИЦА ОПЕРАТОРА ===== -->
+<div class="page" id="page-operator">
+  <div class="operator-container">
+    <header>
+      <h1>🖥️ Панель оператора</h1>
+      <div class="status-badge" id="statusBadge">Свободен</div>
+    </header>
+
+    <div class="operator-main">
+      <div class="panel">
+        <h2>Вызов следующего</h2>
+        <select id="serviceSelect">
+          <option value="consultation">Консультация</option>
+          <option value="payment">Оплата</option>
+          <option value="documents">Документы</option>
+        </select>
+        <button class="call-btn" id="callBtn">📢 Вызвать следующего</button>
+      </div>
+
+      <div class="panel">
+        <h2>Текущий клиент</h2>
+        <div class="big-number" id="opCurrent">—</div>
+        <button class="complete-btn" id="completeBtn" disabled>✅ Завершить обслуживание</button>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Статистика</h2>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <span class="stat-value" id="waitingCount">0</span>
+          <span class="stat-label">В очереди</span>
+        </div>
+        <div class="stat-card">
+          <span class="stat-value" id="servedCount">0</span>
+          <span class="stat-label">Обслужено</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel queue-list">
+      <h2>Очередь</h2>
+      <ul id="queueList"></ul>
+    </div>
+  </div>
+</div>
+
+<!-- Модальное окно с номерком -->
+<div class="ticket-modal" id="ticketModal">
+  <div class="ticket-card">
+    <p class="ticket-label">Ваш номерок</p>
+    <div class="ticket-number" id="ticketNumber">—</div>
+    <p class="ticket-service" id="ticketService">—</p>
+    <p class="ticket-time" id="ticketTime"></p>
+    <button class="close-btn" onclick="closeModal()">Готово</button>
+  </div>
+</div>
+
+<script>
+// ================= ЛОГИКА ОЧЕРЕДИ =================
+const STORAGE_KEY = 'queue_app_data';
+const SERVICE_NAMES = {
+  consultation: 'Консультация',
+  payment: 'Оплата',
+  documents: 'Документы'
+};
+const SERVICE_PREFIX = {
+  consultation: 'К',
+  payment: 'О',
+  documents: 'Д'
+};
+
+function loadData() {
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) {
+    const empty = {
+      tickets: [], current: null,
+      counters: { consultation: 0, payment: 0, documents: 0 }, served: 0
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(empty));
+    return empty;
+  }
+  return JSON.parse(raw);
+}
+function saveData(data) { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); }
+
+function takeTicket(service) {
+  const data = loadData();
+  data.counters[service] = (data.counters[service] || 0) + 1;
+  const num = String(data.counters[service]).padStart(3, '0');
+  const ticket = {
+    id: Date.now() + Math.random(),
+    number: SERVICE_PREFIX[service] + '-' + num,
+    service: service,
+    serviceName: SERVICE_NAMES[service],
+    time: new Date().toISOString(),
+    status: 'waiting'
+  };
+  data.tickets.push(ticket);
+  saveData(data);
+  return ticket;
+}
+
+function callNext(service) {
+  const data = loadData();
+  const next = data.tickets.find(t => t.service === service && t.status === 'waiting');
+  if (!next) return null;
+  if (data.current) {
+    const cur = data.tickets.find(t => t.id === data.current);
+    if (cur) cur.status = 'served';
+  }
+  next.status = 'serving';
+  data.current = next.id;
+  saveData(data);
+  return next;
+}
+
+function completeCurrent() {
+  const data = loadData();
+  if (data.current) {
+    const cur = data.tickets.find(t => t.id === data.current);
+    if (cur) cur.status = 'served';
+    data.current = null;
+    data.served = (data.served || 0) + 1;
+    saveData(data);
+  }
+}
+
+function getCurrent() {
+  const data = loadData();
+  if (!data.current) return null;
+  const t = data.tickets.find(t => t.id === data.current);
+  return t ? t.number : null;
+}
+function getWaiting() { return loadData().tickets.filter(t => t.status === 'waiting'); }
+function getWaitingCount() { return getWaiting().length; }
+function getServedCount() { return loadData().served || 0; }
+
+// ================= ПЕРЕКЛЮЧЕНИЕ ВКЛАДОК =================
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('page-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+// ================= ТЕРМИНАЛ =================
+function updateCurrent() {
+  document.getElementById('currentDisplay').textContent = getCurrent() || '—';
+}
+
+document.querySelectorAll('.service-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const ticket = takeTicket(btn.dataset.service);
+    showTicket(ticket);
+    updateCurrent();
+  });
+});
+
+function showTicket(ticket) {
+  document.getElementById('ticketNumber').textContent = ticket.number;
+  document.getElementById('ticketService').textContent = SERVICE_NAMES[ticket.service];
+  document.getElementById('ticketTime').textContent =
+    new Date(ticket.time).toLocaleTimeString('ru-RU', {hour: '2-digit', minute: '2-digit'});
+  document.getElementById('ticketModal').classList.add('active');
+}
+function closeModal() {
+  document.getElementById('ticketModal').classList.remove('active');
+}
+
+// ================= ОПЕРАТОР =================
+function renderOperator() {
+  document.getElementById('opCurrent').textContent = getCurrent() || '—';
+  document.getElementById('completeBtn').disabled = !getCurrent();
+  document.getElementById('waitingCount').textContent = getWaitingCount();
+  document.getElementById('servedCount').textContent = getServedCount();
+
+  const list = document.getElementById('queueList');
+  const waiting = getWaiting();
+  list.innerHTML = '';
+  if (waiting.length === 0) {
+    list.innerHTML = '<div class="empty-msg">Очередь пуста</div>';
+  } else {
+    waiting.forEach(t => {
+      const li = document.createElement('li');
+      li.innerHTML = '<span class="num">' + t.number + '</span><span class="svc">' + t.serviceName + '</span>';
+      list.appendChild(li);
+    });
+  }
+}
+
+document.getElementById('callBtn').addEventListener('click', () => {
+  const service = document.getElementById('serviceSelect').value;
+  const ticket = callNext(service);
+  if (ticket) {
+    document.getElementById('statusBadge').textContent = 'Обслуживание';
+    document.getElementById('statusBadge').classList.add('busy');
+    renderOperator();
+    updateCurrent();
+  } else {
+    alert('Очередь по этому направлению пуста');
+  }
+});
+
+document.getElementById('completeBtn').addEventListener('click', () => {
+  completeCurrent();
+  document.getElementById('statusBadge').textContent = 'Свободен';
+  document.getElementById('statusBadge').classList.remove('busy');
+  renderOperator();
+  updateCurrent();
+});
+
+// ================= АВТООБНОВЛЕНИЕ =================
+setInterval(() => {
+  updateCurrent();
+  renderOperator();
+}, 1000);
+
+window.addEventListener('storage', () => {
+  updateCurrent();
+  renderOperator();
+});
+
+updateCurrent();
+renderOperator();
+</script>
+</body>
+</html>
